@@ -73,6 +73,15 @@ class GradientDescent:
         step: float = self.learning_rate
         for it in range(self.max_iterations):
             grad: np.ndarray = self.compute_gradient(func, point, with_tracking=True)
+            # some stuff to check and normalize gradient
+            grad_norm = np.linalg.norm(grad)
+            if grad_norm > 1e10 or np.isnan(grad_norm):
+                print(f"Warning: Gradient norm is too large or NaN at iteration {it}. Stopping.")
+                it_cnt = it
+                break
+            if grad_norm > 1e5:
+                grad = grad / grad_norm * 1e5
+
             match self.lr_method:
                 case 'fixed':
                     step = self.learning_rate
@@ -83,20 +92,11 @@ class GradientDescent:
                 case 'dec_time':
                     step = self.dec_time(self.lr_method_const, self.learning_rate, it + 1)
                 case 'golden_ratio':
-                    step = self.golden_ratio(point, func)
+                    step = self.golden_ratio(func, point, -grad)
                 case 'dichotomy':
                     step = self.dichotomy(point, func)
                 case _:
                     raise ValueError(f'Unknown learning rate method: {self.lr_method}')
-
-            # some stuff to check and normalize gradient
-            grad_norm = np.linalg.norm(grad)
-            if grad_norm > 1e10 or np.isnan(grad_norm):
-                print(f"Warning: Gradient norm is too large or NaN at iteration {it}. Stopping.")
-                it_cnt = it
-                break
-            if grad_norm > 1e5:
-                grad = grad / grad_norm * 1e5
 
             point_k: np.ndarray = point - step * grad
             if np.linalg.norm(point_k - point) < self.tolerance:
@@ -148,18 +148,40 @@ class GradientDescent:
         return init_lr / (1 + gamma * iteration)
 
     # Одномерные поиски
-    def golden_ratio(self, point: np.ndarray, func: str) -> float:
-        a, b = float(point[0]), float(point[1])
-        x = sp.symbols("x")
-        fi = (np.sqrt(5) + 1) / 2
-        c, d = (b - (b - a) / fi), (a + (b - a) / fi)
-        parsed_func: Any = sp.parse_expr(func)
-        func_c, func_d = parsed_func.subs(x, c), parsed_func.subs(x, d)
-        if parsed_func.subs(x, a) <= func_c <= func_d:
-            b = d
-        else:
-            a = c
-        return round((a + b) / 2, 5)
+    def golden_ratio(self, func: str, point: np.ndarray, direction: np.ndarray) -> float:
+        a, b = 0, 1
+        golden_ratio = (np.sqrt(5) - 1) / 2
+        epsilon = 1e-5
+
+        x_sym, y_sym = sp.symbols('x y')
+        parsed_func = sp.parse_expr(func)
+        func_numeric = sp.lambdify((x_sym, y_sym), parsed_func, 'numpy')
+
+        def f_1d(alpha):
+            new_point = point + alpha * direction
+            return func_numeric(new_point[0], new_point[1])
+
+        alpha1 = a + (1 - golden_ratio) * (b - a)
+        alpha2 = a + golden_ratio * (b - a)
+
+        f1 = f_1d(alpha1)
+        f2 = f_1d(alpha2)
+
+        while abs(b - a) > epsilon:
+            if f1 < f2:
+                b = alpha2
+                alpha2 = alpha1
+                f2 = f1
+                alpha1 = a + (1 - golden_ratio) * (b - a)
+                f1 = f_1d(alpha1)
+            else:
+                a = alpha1
+                alpha1 = alpha2
+                f1 = f2
+                alpha2 = a + golden_ratio * (b - a)
+                f2 = f_1d(alpha2)
+
+        return (a + b) / 2
 
     def dichotomy(self, point: np.ndarray, func: str) -> float:
         a, b = float(point[0]), float(point[1])
@@ -189,7 +211,7 @@ class GradientDescent:
 
 
 def main():
-    gd = GradientDescent(learning_rate=0.1, max_iterations=500, lr_method_const=0.005, lr_method='armijo')
+    gd = GradientDescent(learning_rate=0.1, max_iterations=500, lr_method_const=0.005, lr_method='golden_ratio')
     func = "x**2 + y**2"  # f(x, y) = x^2 + y^2
     result = gd.solve(func, init_p=(10, 10))
     print(f"Result: {result['result']}, Iterations: {result['it_cnt']}")
