@@ -81,7 +81,7 @@ class GradientDescent:
         def compute_step_exp_decay(self, decay: float, cur_step: float):
             return cur_step * decay
 
-        # Тут последний аргумент всегда значение самого первого шага
+        # Тут предпоследнего аргумент всегда значение самого первого шага
         def compute_step_dec_time(self, gamma: float, init_step: float, number_of_step: int):
             return init_step / (1 + gamma * number_of_step)
 
@@ -110,3 +110,14 @@ class GradientDescent:
             else:
                 a = c
             return a, b
+
+        def LOBOTOMIYA(self, a: float, b:float, func: str):
+            x = sp.symbols("x")
+            parsed_func: Any = sp.parse_expr(func)
+            delta = (b - a) / 4
+            m = (a + b) / 2
+            func_c, func_d = parsed_func.subs(x, m - delta), parsed_func.subs(x, m + delta)
+            if func_c > func_d:
+                return  m - delta, b
+            else:
+                return a, m + delta
