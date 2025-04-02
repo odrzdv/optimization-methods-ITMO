@@ -8,11 +8,13 @@ import matplotlib.pyplot as plt
 class GradientDescent:
     def __init__(
             self,
+            learning_rate: float,
             max_iterations: int,
             lr_method_const: float,
             lr_method: str = 'fixed',
-            tolerance: float = 1e-5
+            tolerance: float = 1e-6
     ) -> None:
+        self.learning_rate = learning_rate
         self.max_iterations: int = max_iterations
         self.tolerance: float = tolerance
         self.lr_method_const: float = lr_method_const
@@ -75,11 +77,11 @@ class GradientDescent:
             prev_f: float = self.history[-1][2]
             match self.lr_method:
                 case 'fixed':
-                    step = self.lr_method_const
+                    step = self.learning_rate
                 case 'armijo':
                     step = self.armijo(func, prev_f, point, const=self.lr_method_const)
                 case 'exp_decay':
-                    step = self.exp_decay(self.lr_method_const, prev_f)
+                    step = self.exp_decay(self.learning_rate, it + 1)
                 case 'dec_time':
                     step = self.dec_time(self.lr_method_const, self.history[0][2], it + 1)
                 case 'golden_ratio':
@@ -88,6 +90,15 @@ class GradientDescent:
                     step = self.dichotomy(point, func)
                 case _:
                     raise ValueError(f'Unknown learning rate method: {self.lr_method}')
+
+            # some stuff to check and normalize gradient
+            grad_norm = np.linalg.norm(grad)
+            if grad_norm > 1e10 or np.isnan(grad_norm):
+                print(f"Warning: Gradient norm is too large or NaN at iteration {it}. Stopping.")
+                it_cnt = it
+                break
+            if grad_norm > 1e5:
+                grad = grad / grad_norm * 1e5
 
             point_k: np.ndarray = point - step * grad
             if np.linalg.norm(point_k - point) < self.tolerance:
@@ -129,8 +140,8 @@ class GradientDescent:
         else:
             return cur_step
 
-    def exp_decay(self, decay: float, cur_step: float) -> float:
-        return cur_step * decay
+    def exp_decay(self, init_lr: float, iteration: int) -> float:
+        return init_lr * np.exp(-self.lr_method_const * iteration)
 
     # Тут предпоследнего аргумент всегда значение самого первого шага
     def dec_time(self, gamma: float, init_step: float, number_of_step: int) -> float:
@@ -178,7 +189,7 @@ class GradientDescent:
 
 
 def main():
-    gd = GradientDescent(max_iterations=500, lr_method_const=0.1, lr_method='fixed')
+    gd = GradientDescent(learning_rate=0.1, max_iterations=500, lr_method_const=0.005, lr_method='exp_decay')
     func = "x**2 + y**2"  # f(x, y) = x^2 + y^2
     result = gd.solve(func, init_p=(10, 10))
     print(f"Result: {result['result']}, Iterations: {result['it_cnt']}")
