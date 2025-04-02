@@ -70,20 +70,18 @@ class GradientDescent:
         """
         point: np.ndarray = np.array(init_p, dtype=np.float64)  # converting to numpy values
         it_cnt: int = -1
+        step: float = self.learning_rate
         for it in range(self.max_iterations):
             grad: np.ndarray = self.compute_gradient(func, point, with_tracking=True)
-
-            step: float
-            prev_f: float = self.history[-1][2]
             match self.lr_method:
                 case 'fixed':
                     step = self.learning_rate
                 case 'armijo':
-                    step = self.armijo(func, prev_f, point, const=self.lr_method_const)
+                    step = self.armijo(func, step, point, const=self.lr_method_const)
                 case 'exp_decay':
-                    step = self.exp_decay(self.learning_rate, it + 1)
+                    step = self.exp_decay(self.lr_method_const, self.learning_rate, it + 1)
                 case 'dec_time':
-                    step = self.dec_time(self.lr_method_const, self.history[0][2], it + 1)
+                    step = self.dec_time(self.lr_method_const, self.learning_rate, it + 1)
                 case 'golden_ratio':
                     step = self.golden_ratio(point, func)
                 case 'dichotomy':
@@ -131,21 +129,23 @@ class GradientDescent:
         X, Y = float(point[0]), float(point[1])
         x, y = sp.symbols("x y")
         grad = self.compute_gradient(func, point, with_tracking=False)
-        parsed_func: Any = sp.parse_expr(func)
+        parsed_func = sp.parse_expr(func)
+
         left_dote_x, left_dote_y = X - cur_step * grad[0], Y - cur_step * grad[1]
-        left_expr = parsed_func.subs(x, (X - left_dote_x), y, (Y - left_dote_y))
-        right_expr = parsed_func.subs(x, X, y, Y) - const * cur_step * (grad[0] ** 2 + grad[1] ** 2)
+        left_expr = parsed_func.subs({x: left_dote_x, y: left_dote_y})
+        right_expr = parsed_func.subs({x: X, y: Y}) - const * cur_step * (grad[0] ** 2 + grad[1] ** 2)
+
         if left_expr > right_expr:
             return cur_step * 0.5
         else:
             return cur_step
 
-    def exp_decay(self, init_lr: float, iteration: int) -> float:
-        return init_lr * np.exp(-self.lr_method_const * iteration)
+    def exp_decay(self, const: float, init_lr: float, iteration: int) -> float:
+        return init_lr * np.exp(-const * iteration)
 
     # Тут предпоследнего аргумент всегда значение самого первого шага
-    def dec_time(self, gamma: float, init_step: float, number_of_step: int) -> float:
-        return init_step / (1 + gamma * number_of_step)
+    def dec_time(self, gamma: float, init_lr: float, iteration: int) -> float:
+        return init_lr / (1 + gamma * iteration)
 
     # Одномерные поиски
     def golden_ratio(self, point: np.ndarray, func: str) -> float:
@@ -189,7 +189,7 @@ class GradientDescent:
 
 
 def main():
-    gd = GradientDescent(learning_rate=0.1, max_iterations=500, lr_method_const=0.005, lr_method='exp_decay')
+    gd = GradientDescent(learning_rate=0.1, max_iterations=500, lr_method_const=0.005, lr_method='armijo')
     func = "x**2 + y**2"  # f(x, y) = x^2 + y^2
     result = gd.solve(func, init_p=(10, 10))
     print(f"Result: {result['result']}, Iterations: {result['it_cnt']}")
