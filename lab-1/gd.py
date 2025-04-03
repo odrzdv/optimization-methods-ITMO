@@ -3,6 +3,7 @@ from typing import List, Any, Callable, Tuple, Dict, Union
 import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
+from scipy.optimize import minimize
 
 
 class GradientDescent:
@@ -95,6 +96,8 @@ class GradientDescent:
                     step = self.golden_ratio(func, point, -grad)
                 case 'dichotomy':
                     step = self.dichotomy(point, func)
+                case 'scipy.BFG':
+                    step = self.scipyBFG(point, func)
                 case _:
                     raise ValueError(f'Unknown learning rate method: {self.lr_method}')
 
@@ -183,6 +186,15 @@ class GradientDescent:
             result = (a + m + delta) / 2
         return round(result, 5)
 
+    def scipyBFG(self, func: str, direction: np.ndarray, point: np.ndarray) -> float:
+        x_sym, y_sym = sp.symbols('x y')
+        parsed_func = sp.parse_expr(func)
+        func_numeric = sp.lambdify((x_sym, y_sym), parsed_func, 'numpy')
+
+        f_1d = lambda alpha: func_numeric(point[0] + alpha * direction, point[1] + alpha * direction)
+
+        return minimize(f_1d, point, method='BFGS')
+
     # def compute_step_bold_driver(
     #         self,
     #         increase: float,
@@ -196,11 +208,15 @@ class GradientDescent:
     #     else:
     #         return cur_step * decrease
 
+def objective_function(x):
+    return (x[0] ** 2 + x[1] - 11) ** 2 + (x[0] + x[1] ** 2 - 7) ** 2
 
 def main():
-    gd = GradientDescent(learning_rate=0.1, max_iterations=500, lr_method_const=0.005, lr_method='golden_ratio')
+    x_sym, y_sym = sp.symbols('x y')
+    gd = GradientDescent(learning_rate=0.1, max_iterations=1000, lr_method_const=0.005, lr_method='golden_ratio')
     func = "(x**2 + y - 11)**2 + (x + y**2 - 7)**2"  # f(x, y) = x^2 + y^2
-    result = gd.solve(func, init_p=(10, 10))
+    result = gd.solve(func, init_p=(-3, 4))
+    print(minimize(objective_function, [-3, 4], method="BFGS"))
     print(f"Result: {result['result']}, Iterations: {result['it_cnt']}")
     gd.plot_descent()
 
