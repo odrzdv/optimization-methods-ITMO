@@ -13,7 +13,7 @@ class GradientDescent:
             max_iterations: int,
             lr_method_const: float,
             lr_method: str = 'fixed',
-            tolerance: float = 1e-6
+            tolerance: float = 1e-6,
     ) -> None:
         self.learning_rate = learning_rate
         self.max_iterations: int = max_iterations
@@ -21,6 +21,8 @@ class GradientDescent:
         self.lr_method_const: float = lr_method_const
         self.lr_method = lr_method
         self.history: List[Tuple[float, float, float]] = []
+        self.grad_calcs: int = 0
+        self.func_calcs: int = 0
 
     def compute_gradient(self, func: str, point: np.ndarray, with_tracking: bool) -> np.ndarray:
         """
@@ -52,6 +54,7 @@ class GradientDescent:
                                               modules='numpy')  # converting sympy derivatives to python funcs
             grads.append(grad_func)
 
+        self.grad_calcs = self.grad_calcs + 1
         return np.array([g(point[0], point[1]) for g in grads], dtype=np.float64)  # evaluating gradient at given point
 
     def solve(self, func: str, init_p: Tuple[float, float]) \
@@ -89,15 +92,13 @@ class GradientDescent:
                 case 'armijo':
                     step = self.armijo(func, step, point, const=self.lr_method_const)
                 case 'exp_decay':
-                    step = self.exp_decay(self.lr_method_const, self.learning_rate, it + 1)
+                    step = self.exp_decay(self.lr_method_const)
                 case 'dec_time':
-                    step = self.dec_time(self.lr_method_const, self.learning_rate, it + 1)
+                    step = self.dec_time(self.lr_method_const)
                 case 'golden_ratio':
                     step = self.golden_ratio(func, point, -grad)
                 case 'dichotomy':
-                    step = self.dichotomy(point, func)
-                case 'scipy.BFG':
-                    step = self.scipyBFG(point, func)
+                    step = self.dichotomy(point, func, -grad)
                 case _:
                     raise ValueError(f'Unknown learning rate method: {self.lr_method}')
 
@@ -108,7 +109,9 @@ class GradientDescent:
             point = point_k
         return {
             'result': (float(point[0]), float(point[1])),
-            'it_cnt': it_cnt + 1 if it_cnt >= 0 else self.max_iterations
+            'it_cnt': it_cnt + 1 if it_cnt >= 0 else self.max_iterations,
+            'grad_calcs': self.grad_calcs,
+            'func_calcs': self.func_calcs
         }
 
     def plot_descent(self) -> None:
@@ -127,97 +130,124 @@ class GradientDescent:
         plt.title('Gradient Descent Path')
         plt.show()
 
-    def armijo(self, func: str, cur_step: float, point: np.ndarray, const: float) -> float:
-        X, Y = float(point[0]), float(point[1])
-        x, y = sp.symbols("x y")
-        grad = self.compute_gradient(func, point, with_tracking=False)
+    def armijo(self, func: str, cur_step: float, point: np.ndarray, direction: np.ndarray, const: float) -> float:
+        x_sym, y_sym = sp.symbols('x y')
         parsed_func = sp.parse_expr(func)
+        func_numeric = sp.lambdify((x_sym, y_sym), parsed_func, 'numpy')
+        grad = self.compute_gradient(func, point, with_tracking=False)
+        f_current = func_numeric(point[0], point[1])
+        directional_derivative = np.dot(grad, direction)
 
-        left_dote_x, left_dote_y = X - cur_step * grad[0], Y - cur_step * grad[1]
-        left_expr = parsed_func.subs({x: left_dote_x, y: left_dote_y})
-        right_expr = parsed_func.subs({x: X, y: Y}) - const * cur_step * (grad[0] ** 2 + grad[1] ** 2)
+        # Armijo condition: f(x + αd) ≤ f(x) + c*α*∇f(x)·d
+        alpha = cur_step
+        max_iter = 20  # Prevent infinite loops
+        for _ in range(max_iter):
+            new_point = point + alpha * direction
+            f_new = func_numeric(new_point[0], new_point[1])
+            self.func_calcs += 1
+            if f_new <= f_current + const * alpha * directional_derivative:
+                return alpha
+            alpha *= 0.5
 
-        if left_expr > right_expr:
-            return cur_step * 0.5
-        else:
-            return cur_step
+        return alpha
 
-    def exp_decay(self, const: float, init_lr: float, iteration: int) -> float:
-        return init_lr * np.exp(-const * iteration)
+    def exp_decay(self, iteration: int) -> float:
+        min_lr = 1e-7
+        return max(self.learning_rate * np.exp(-self.lr_method_const * iteration), min_lr)
 
-    def dec_time(self, gamma: float, init_lr: float, iteration: int) -> float:
-        return init_lr / (1 + gamma * iteration)
+    def dec_time(self, iteration: int) -> float:
+        min_lr = 1e-7
+        return max(self.learning_rate / (1 + self.lr_method_const * iteration), min_lr)
 
     # Одномерные поиски
     def golden_ratio(self, func: str, point: np.ndarray, direction: np.ndarray) -> float:
         a, b = 0, 1
-        golden_ratio = (np.sqrt(5) + 1) / 2
+        golden_ratio_val = (np.sqrt(5) - 1) / 2
         epsilon = 1e-5
 
         x_sym, y_sym = sp.symbols('x y')
         parsed_func = sp.parse_expr(func)
         func_numeric = sp.lambdify((x_sym, y_sym), parsed_func, 'numpy')
-        f_1d = lambda alpha: func_numeric(point[0] + alpha * direction, point[1] + alpha * direction)
 
-        c = b - (b - a) / golden_ratio
-        d = a + (b - a) / golden_ratio
-        test = f_1d(c)
+        # Tut luchshe tak
+        f_1d = lambda alpha: func_numeric(
+            point[0] + alpha * direction[0],
+            point[1] + alpha * direction[1]
+        )
+
+        c = b - golden_ratio_val * (b - a)
+        d = a + golden_ratio_val * (b - a)
+        f_c = f_1d(c)
+        f_d = f_1d(d)
+        self.func_calcs += 2
+
         while abs(b - a) > epsilon:
-            f_1 = f_1d(c)[0]
-            f_2 = f_1d(d)[0]
-            if f_1 < f_2:
+            if f_c < f_d:
                 b = d
+                d = c
+                f_d = f_c
+                c = b - golden_ratio_val * (b - a)
+                f_c = f_1d(c)
+                self.func_calcs += 1
             else:
                 a = c
-            c = b - (b - a) / golden_ratio
-            d = a + (b - a) / golden_ratio
-        return (b + a) / 2
+                c = d
+                f_c = f_d
+                d = a + golden_ratio_val * (b - a)
+                f_d = f_1d(d)
+                self.func_calcs += 1
 
-    def dichotomy(self, point: np.ndarray, func: str) -> float:
-        a, b = float(point[0]), float(point[1])
-        x = sp.symbols("x")
-        parsed_func: Any = sp.parse_expr(func)
-        delta = (b - a) / 4
-        m = (a + b) / 2
-        func_c, func_d = parsed_func.subs(x, m - delta), parsed_func.subs(x, m + delta)
-        if func_c > func_d:
-            result = (m - delta + b) / 2
-        else:
-            result = (a + m + delta) / 2
-        return round(result, 5)
+        return (a + b) / 2
 
-    def scipyBFG(self, func: str, direction: np.ndarray, point: np.ndarray) -> float:
+    def dichotomy(self, point: np.ndarray, func: str, direction: np.ndarray) -> float:
+        a, b = 0, 1  # Init interval che
+        epsilon = 1e-5
+        delta = epsilon / 4
+
         x_sym, y_sym = sp.symbols('x y')
         parsed_func = sp.parse_expr(func)
         func_numeric = sp.lambdify((x_sym, y_sym), parsed_func, 'numpy')
 
-        f_1d = lambda alpha: func_numeric(point[0] + alpha * direction, point[1] + alpha * direction)
+        f_1d = lambda alpha: func_numeric(
+            point[0] + alpha * direction[0],
+            point[1] + alpha * direction[1]
+        )
 
-        return minimize(f_1d, point, method='BFGS')
+        while (b - a) > epsilon:
+            m = (a + b) / 2
+            x1 = m - delta
+            x2 = m + delta
 
-    # def compute_step_bold_driver(
-    #         self,
-    #         increase: float,
-    #         decrease: float,
-    #         init_step: float,
-    #         cur_step: float,
-    #         func_decreased: bool,
-    # ):
-    #     if func_decreased:
-    #         return min(init_step, cur_step * increase)
-    #     else:
-    #         return cur_step * decrease
+            f1 = f_1d(x1)
+            f2 = f_1d(x2)
+            self.func_calcs += 2
+
+            if f1 < f2:
+                b = x2
+            else:
+                a = x1
+
+        return (a + b) / 2
+
 
 def objective_function(x):
-    return (x[0] ** 2 + x[1] - 11) ** 2 + (x[0] + x[1] ** 2 - 7) ** 2
+    return 3 * (x[0] - 3) ** 2 + x[1] ** 2
+
 
 def main():
     x_sym, y_sym = sp.symbols('x y')
-    gd = GradientDescent(learning_rate=0.1, max_iterations=1000, lr_method_const=0.005, lr_method='golden_ratio')
-    func = "(x**2 + y - 11)**2 + (x + y**2 - 7)**2"  # f(x, y) = x^2 + y^2
-    result = gd.solve(func, init_p=(-3, 4))
-    print(minimize(objective_function, [-3, 4], method="BFGS"))
-    print(f"Result: {result['result']}, Iterations: {result['it_cnt']}")
+    func = "(1-x)**2 + 100*(y-x**2)**2"
+    init_p = (-2, 0)
+
+    # Gradient Descent с suggested params
+    gd = GradientDescent(
+        learning_rate=0.1,
+        max_iterations=1000,
+        lr_method_const=0.01,
+        lr_method='golden_ratio'
+    )
+    result_gd = gd.solve(func, init_p)
+    print(f"Optimized Gradient Descent Result: {result_gd}")
     gd.plot_descent()
 
 
