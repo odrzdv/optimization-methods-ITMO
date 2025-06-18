@@ -90,7 +90,7 @@ class GradientDescent:
                 case 'fixed':
                     step = self.learning_rate
                 case 'armijo':
-                    step = self.armijo(func, step, point, const=self.lr_method_const)
+                    step = self.armijo(func, step, point, const=self.lr_method_const, direction=-grad)
                 case 'exp_decay':
                     step = self.exp_decay(self.lr_method_const)
                 case 'dec_time':
@@ -152,11 +152,11 @@ class GradientDescent:
         return alpha
 
     def exp_decay(self, iteration: int) -> float:
-        min_lr = 1e-7
+        min_lr = 1e-8
         return max(self.learning_rate * np.exp(-self.lr_method_const * iteration), min_lr)
 
     def dec_time(self, iteration: int) -> float:
-        min_lr = 1e-7
+        min_lr = 1e-8
         return max(self.learning_rate / (1 + self.lr_method_const * iteration), min_lr)
 
     # Одномерные поиски
@@ -236,19 +236,28 @@ def objective_function(x):
 
 def main():
     x_sym, y_sym = sp.symbols('x y')
-    func = "(1-x)**2 + 100*(y-x**2)**2"
-    init_p = (-2, 0)
+    func = "3*(x - 3)**2 + y**2"
+    init_p = (-2, -5)
 
     # Gradient Descent с suggested params
-    gd = GradientDescent(
-        learning_rate=0.1,
-        max_iterations=1000,
-        lr_method_const=0.01,
-        lr_method='golden_ratio'
-    )
-    result_gd = gd.solve(func, init_p)
-    print(f"Optimized Gradient Descent Result: {result_gd}")
-    gd.plot_descent()
+    for i in ['fixed', 'armijo', 'exp_decay', 'dec_time', 'golden_ratio', 'dichotomy']:
+        if i in ['fixed', 'exp_decay', 'dec_time']:
+            gd = GradientDescent(
+                learning_rate=0.1,
+                max_iterations=1000,
+                lr_method_const=0.01,
+                lr_method=i
+            )
+        else:
+            gd = GradientDescent(
+                learning_rate=1,
+                max_iterations=1000,
+                lr_method_const=0.01,
+                lr_method=i
+            )
+        result_gd = gd.solve(func, init_p)
+        print(f"{result_gd}" + " " + i)
+        gd.plot_descent()
 
 
 main()

@@ -376,48 +376,48 @@ def main():
     x_sym, y_sym = sp.symbols('x y')
     func = "(1-x)**2 + 100*(y-x**2)**2"
     init_p = (-2, 0)
-    print("Tuning hyperparameters for Gradient Descent...")
-    best_gd_params = tune_hyperparameters('gradient', func, init_p)
-    print("Tuning hyperparameters for Newton's Method...")
-    best_newton_params = tune_hyperparameters('newton', func, init_p)
-    print("\nRunning optimized methods...")
-
-    # Gradient Descent с suggested params
-    gd = GradientDescent(
-        learning_rate=best_gd_params['learning_rate'],
-        max_iterations=1000,
-        lr_method_const=best_gd_params.get('lr_method_const', 0.01),
-        lr_method=best_gd_params['lr_method'],
-        method='gradient'
-    )
-    result_gd = gd.solve(func, init_p)
-    print(f"Optimized Gradient Descent Result: {result_gd}")
-    gd.plot_descent('Gradient Descent Path')
-
-    # Newton's Method suggested params
-    newton = GradientDescent(
-        learning_rate=best_newton_params['learning_rate'],
-        max_iterations=1000,
-        lr_method_const=best_newton_params.get('lr_method_const', 0.01),
-        lr_method=best_newton_params['lr_method'],
-        method='newton'
-    )
-    result_newton = newton.solve(func, init_p)
-    print(f"Optimized Newton's Method Result: {result_newton}")
-    newton.plot_descent('Newton')
-
-    # Newton-CG Method
-    print("\nRunning Newton-CG Method...")
-    newton_cg = GradientDescent(
-        learning_rate=0.1,
-        max_iterations=1000,
-        lr_method_const=0.01,
-        lr_method='fixed',
-        method='newton-cg'
-    )
-    result_newton_cg = newton_cg.solve(func, init_p)
-    print(f"Newton-CG Result: {result_newton_cg}")
-    newton_cg.plot_descent('Newton-CG (scipy)')
+    # print("Tuning hyperparameters for Gradient Descent...")
+    # best_gd_params = tune_hyperparameters('gradient', func, init_p)
+    # print("Tuning hyperparameters for Newton's Method...")
+    # best_newton_params = tune_hyperparameters('newton', func, init_p)
+    # print("\nRunning optimized methods...")
+    #
+    # # Gradient Descent с suggested params
+    # gd = GradientDescent(
+    #     learning_rate=best_gd_params['learning_rate'],
+    #     max_iterations=1000,
+    #     lr_method_const=best_gd_params.get('lr_method_const', 0.01),
+    #     lr_method=best_gd_params['lr_method'],
+    #     method='gradient'
+    # )
+    # result_gd = gd.solve(func, init_p)
+    # print(f"Optimized Gradient Descent Result: {result_gd}")
+    # gd.plot_descent('Gradient Descent Path')
+    #
+    # # Newton's Method suggested params
+    # newton = GradientDescent(
+    #     learning_rate=best_newton_params['learning_rate'],
+    #     max_iterations=1000,
+    #     lr_method_const=best_newton_params.get('lr_method_const', 0.01),
+    #     lr_method=best_newton_params['lr_method'],
+    #     method='newton'
+    # )
+    # result_newton = newton.solve(func, init_p)
+    # print(f"Optimized Newton's Method Result: {result_newton}")
+    # newton.plot_descent('Newton')
+    #
+    # # Newton-CG Method
+    # print("\nRunning Newton-CG Method...")
+    # newton_cg = GradientDescent(
+    #     learning_rate=0.1,
+    #     max_iterations=1000,
+    #     lr_method_const=0.01,
+    #     lr_method='fixed',
+    #     method='newton-cg'
+    # )
+    # result_newton_cg = newton_cg.solve(func, init_p)
+    # print(f"Newton-CG Result: {result_newton_cg}")
+    # newton_cg.plot_descent('Newton-CG (scipy)')
 
     # BFGS Method
     print("\nRunning BFGS Method...")
