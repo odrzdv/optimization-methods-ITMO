@@ -65,7 +65,7 @@ def sgd_regressor(X, y, batch_size=1, n_epochs=100, learning_rate=0.01,
     theta = np.random.randn(n_features).tolist()
     mse_history = []
 
-    # Initialize learning rate schedule parameters
+
     initial_lr = learning_rate
     step_counter = 0
 
@@ -97,7 +97,7 @@ def sgd_regressor(X, y, batch_size=1, n_epochs=100, learning_rate=0.01,
         if regularization == 'none':
             return grad
 
-        for j in range(1, len(theta)):  # Skip bias term
+        for j in range(1, len(theta)):
             if regularization == 'l2':
                 grad[j] = mul(alpha, theta[j])
             elif regularization == 'l1':
@@ -142,16 +142,13 @@ def sgd_regressor(X, y, batch_size=1, n_epochs=100, learning_rate=0.01,
             sample_grad = grad_calc(theta, xi[i], yi[i], current_batch_size)
             total_grad = sum_vectors(total_grad, sample_grad)
 
-        # Add regularization gradient
         reg_grad = compute_regularization_gradient(theta, alpha, l1_ratio, regularization)
         for j in range(n_features):
             total_grad[j] = plus(total_grad[j], reg_grad[j])
 
-        # Update learning rate based on schedule
         current_lr = get_current_lr(initial_lr, step_counter, lr_schedule, decay_rate, decay_steps)
         step_counter += 1
 
-        # Update weights
         theta = subtract_vectors(theta, scale_vector(total_grad, current_lr))
 
         theta_np = np.array(theta)
@@ -166,7 +163,6 @@ def sgd_regressor(X, y, batch_size=1, n_epochs=100, learning_rate=0.01,
     return theta_np, mse_history
 
 
-# Experiment configurations
 configurations = [
     {'name': 'Constant LR, No Reg', 'lr_schedule': 'constant', 'regularization': 'none'},
     {'name': 'Time-based Decay', 'lr_schedule': 'time-based', 'regularization': 'none'},
@@ -208,10 +204,8 @@ for config in configurations:
         results[config['name']]['final_mse'].append(test_mse)
         results[config['name']]['mse_history'].append(mse_history)
 
-# Plotting results
 plt.figure(figsize=(18, 12))
 
-# Time vs Batch Size
 plt.subplot(2, 2, 1)
 for config_name, data in results.items():
     plt.plot(data['batch_size'], data['time'], 'o-', label=config_name)
@@ -221,7 +215,6 @@ plt.ylabel('Time (seconds)')
 plt.title('Training Time vs Batch Size')
 plt.legend()
 
-# Test MSE vs Batch Size
 plt.subplot(2, 2, 2)
 for config_name, data in results.items():
     plt.plot(data['batch_size'], data['final_mse'], 'o-', label=config_name)
@@ -231,18 +224,16 @@ plt.ylabel('Test MSE')
 plt.title('Test Error vs Batch Size')
 plt.legend()
 
-# Convergence Speed
 plt.subplot(2, 2, 3)
 for config_name, data in results.items():
     for i, bs in enumerate(batch_sizes):
-        if bs in [1, 32]:  # Plot only selected batch sizes for clarity
+        if bs in [1, 32]:
             plt.plot(data['mse_history'][i], label=f"{config_name} (bs={bs})")
 plt.xlabel('Epochs')
 plt.ylabel('MSE')
 plt.legend()
 plt.title('Convergence Speed')
 
-# Error vs Wall-clock Time
 plt.subplot(2, 2, 4)
 for config_name, data in results.items():
     for i, (bs, mse_history, exec_time) in enumerate(zip(
@@ -250,7 +241,7 @@ for config_name, data in results.items():
             data['mse_history'],
             data['time']
     )):
-        if bs in [1, 32]:  # Plot only selected batch sizes
+        if bs in [1, 32]:
             relative_time = np.linspace(0, exec_time, len(mse_history))
             plt.plot(relative_time, mse_history, label=f"{config_name} (bs={bs})")
 plt.xlabel('Time (s)')
