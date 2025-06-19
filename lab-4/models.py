@@ -4,6 +4,7 @@ from functools import partial
 from typing import List
 
 from annealing import FunctionModel, simulate_annealing, visualize
+from genetic import genetic_algorithm, visualize_genetic
 
 
 def make_temperature_function(a=5, b=0.001):
@@ -47,36 +48,59 @@ def multimodal_function(params: List[float], m: float = 5.0) -> float:
     return base + m * wells
 
 
-noisy_func = partial(noisy_ellipse, m=13)
+noisy_func = partial(noisy_ellipse, m=3)
 multimodal = partial(multimodal_function, m=5)
-
-model = FunctionModel(
-    # f=lambda params: sum(noisy_func(params) for _ in range(5)) / 5,
-    f=multimodal,
+#
+# model = FunctionModel(
+#     # f=lambda params: sum(noisy_func(params) for _ in range(5)) / 5,
+#     f=multimodal,
+#     # f=ellipse,
+#     params=[random.uniform(-10, 10) for _ in range(2)]
+# )
+#
+# result, score, trace = simulate_annealing(
+#     model=model,
+#     temperature_function=make_temperature_function(a=100, b=0.01),
+#     # temperature_function=zero_temperature,
+#     get_attrs=inv_square_attrs,
+#     # get_attrs=fixed_attrs,
+#     get_tolerance=get_tolerance,
+#     iterations=500
+# )
+#
+# print(f"Best x = {result.get_state()[0]:.5f}, y = {result.get_state()[1]:.5f}, f(x, y) = {score:.5f}")
+#
+#
+# def downsample_trace(trace, step=5):
+#     return trace[::step] + [trace[-1]]
+#
+#
+# visualize(
+#     # ellipse,
+#     # noisy_func,
+#     multimodal,
+#     downsample_trace(trace, step=10)
+# )
+#
+best_model, score, best_trace, pop_trace = genetic_algorithm(
+    model_class=FunctionModel,
+    # f=multimodal,
     # f=ellipse,
-    params=[random.uniform(-10, 10) for _ in range(2)]
+    f=noisy_func,
+    population_size=70,
+    generations=200,
+    mutation_scale=0.4,
+    crossover_rate=0.8,
+    selection_rate=0.5
 )
 
-result, score, trace = simulate_annealing(
-    model=model,
-    temperature_function=make_temperature_function(a=100, b=0.01),
-    # temperature_function=zero_temperature,
-    get_attrs=inv_square_attrs,
-    # get_attrs=fixed_attrs,
-    get_tolerance=get_tolerance,
-    iterations=500
-)
+print(f"Best: x={best_model.get_state()[0]:.3f}, y={best_model.get_state()[1]:.3f}, score={score:.5f}")
 
-print(f"Best x = {result.get_state()[0]:.5f}, y = {result.get_state()[1]:.5f}, f(x, y) = {score:.5f}")
-
-
-def downsample_trace(trace, step=5):
-    return trace[::step] + [trace[-1]]
-
-
-visualize(
+visualize_genetic(
     # ellipse,
-    # noisy_func,
-    multimodal,
-    downsample_trace(trace, step=10)
+    noisy_func,
+    # multimodal,
+    best_trace,
+    pop_trace,
+    every=5
 )
