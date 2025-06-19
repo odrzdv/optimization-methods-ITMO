@@ -3,7 +3,7 @@ import random
 from functools import partial
 from typing import List
 
-from annealing import FunctionModel, simulate_annealing, visualize
+from annealing import FunctionModel, simulate_annealing, visualize, TSPModel, plot_tsp_route
 from genetic import genetic_algorithm, visualize_genetic
 
 
@@ -82,25 +82,39 @@ multimodal = partial(multimodal_function, m=5)
 #     downsample_trace(trace, step=10)
 # )
 #
-best_model, score, best_trace, pop_trace = genetic_algorithm(
-    model_class=FunctionModel,
-    # f=multimodal,
-    # f=ellipse,
-    f=noisy_func,
-    population_size=70,
-    generations=200,
-    mutation_scale=0.4,
-    crossover_rate=0.8,
-    selection_rate=0.5
+# best_model, score, best_trace, pop_trace = genetic_algorithm(
+#     model_class=FunctionModel,
+#     # f=multimodal,
+#     # f=ellipse,
+#     f=noisy_func,
+#     population_size=70,
+#     generations=200,
+#     mutation_scale=0.4,
+#     crossover_rate=0.8,
+#     selection_rate=0.5
+# )
+#
+# print(f"Best: x={best_model.get_state()[0]:.3f}, y={best_model.get_state()[1]:.3f}, score={score:.5f}")
+#
+# visualize_genetic(
+#     # ellipse,
+#     noisy_func,
+#     # multimodal,
+#     best_trace,
+#     pop_trace,
+#     every=5
+# )
+
+
+cities = [(random.uniform(0, 100), random.uniform(0, 100)) for _ in range(30)]
+model = TSPModel(cities)
+
+result, cost, trace = simulate_annealing(
+    model=model,
+    temperature_function=make_temperature_function(a=1000, b=0.005),
+    get_attrs=lambda i: None,
+    get_tolerance=lambda delta, T: math.exp(-delta / T),
+    iterations=10000
 )
 
-print(f"Best: x={best_model.get_state()[0]:.3f}, y={best_model.get_state()[1]:.3f}, score={score:.5f}")
-
-visualize_genetic(
-    # ellipse,
-    noisy_func,
-    # multimodal,
-    best_trace,
-    pop_trace,
-    every=5
-)
+plot_tsp_route(cities, result.route, title=f"TSP Simulated Annealing (cost={cost:.2f})")

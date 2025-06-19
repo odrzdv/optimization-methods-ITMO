@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from random import random, uniform
+from random import random, uniform, sample, shuffle
 from typing import Callable, List
 
 import numpy as np
@@ -54,6 +54,36 @@ class FunctionModel(AnnealingModel):
         x = self.params[0] if len(self.params) > 0 else 0.0
         y = self.params[1] if len(self.params) > 1 else 0.0
         return x, y
+
+
+class TSPModel(AnnealingModel):
+    def __init__(self, cities: List[tuple[int | float, int | float]]):
+        self.cities = cities
+        self.route = list(range(len(cities)))
+        shuffle(self.route)
+
+    def evaluate(self) -> float:
+        total = 0
+        for i in range(len(self.route)):
+            a = self.cities[self.route[i]]
+            b = self.cities[self.route[(i + 1) % len(self.route)]]
+            total += ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+        return total
+
+    def copy(self) -> 'TSPModel':
+        copy_model = TSPModel(self.cities)
+        copy_model.route = self.route[:]
+        return copy_model
+
+    def modify(self, attrs: any = None) -> None:
+        i, j = sorted(sample(range(len(self.route)), 2))
+        self.route[i:j] = reversed(self.route[i:j])
+
+    def rollback(self, previous: 'TSPModel') -> None:
+        self.route = previous.route[:]
+
+    def get_state(self) -> tuple:
+        return tuple(self.route)
 
 
 def simulate_annealing(
@@ -122,4 +152,16 @@ def visualize(f, trace):
     plt.legend()
     plt.grid(True)
     plt.axis('equal')
+    plt.show()
+
+def plot_tsp_route(cities, route, title="TSP Route"):
+    ordered = [cities[i] for i in route] + [cities[route[0]]]
+    xs, ys = zip(*ordered)
+    plt.figure(figsize=(8, 6))
+    plt.plot(xs, ys, 'o-', markersize=8)
+    for idx, (x, y) in enumerate(cities):
+        plt.text(x + 1, y + 1, str(idx), fontsize=9)
+    plt.title(title)
+    plt.grid(True)
+    plt.axis("equal")
     plt.show()
